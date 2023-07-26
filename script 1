@@ -1,0 +1,379 @@
+###########################################
+### AGRUPACION variable tiempo 
+
+vp<- c( 21.07,##cq 2
+        39.90, ##cq 3
+        59.35, ##cq 4
+        2.57,##cq 5
+        24.09,##cq7
+        26.88,##cq8
+        154.23,##tq 2
+        134.32,##tq 3
+        125.65,##tq 4
+        40.11,##tq 5
+        119.22,##tq7
+        110.38,##tq8
+        32.16, ##ct 1
+        51.63,##ct 2
+        36.42,##ct 4
+        26.31,##ct 5
+        38.41,##ct7
+        34.88,##ct8
+        27.11, ##tt 1
+        28.47,##tt 2
+        28.72,##tt 4
+        35.59,##tt 5
+        29.24,##tt7
+        32.11,##tt8
+        79.63, ## cv1
+        21.10,## cv2
+        49.54,## vc4
+        27.29,##cv5
+        40.79,##cv7
+        48.74,##cv8
+        116.23, ##tv 1
+        42.89,## tv 2
+        126,##tv 4
+        7.10,## tv5
+        78.85,##tv7
+        73.55##tv8
+)
+str(trat)
+
+
+# lista factores con numero de rep diferente
+
+trat <- factor(rep(1:6, c(6,6,6,6,6,6)),labels = c("c","q","c","t","c","v"))
+tipo<-factor(rep(1:3,c(12,12,12)),labels = c("quimico","tactil","visual"))
+id<- rep(1:6)
+
+adata<- cbind.data.frame(trat,vp,tipo,id)
+adata
+d<-adata
+str(adata)
+######### tip=unique(d$tipo)
+
+tip=unique(d$tipo)
+a=aggregate(d$vp,list(tipo=d$tipo,trat=d$trat),mean)
+a1=aggregate(a$x,list(tipo=a$tipo,trat=a$trat),mean)
+
+a2=aggregate(d$vp,list(tipo=d$tipo,trat=d$trat),sd)
+a2=aggregate(a$x,list(tipo=a$tipo,trat=a$trat),sd)
+
+plot(0:1,range(a1$x),type="n",xlab="Tretament",ylab="Aggrupation Time (s)",xaxt="n",xlim=c(-.3,1.5))
+axis(1,c("Control","stimulus"),at=0:1)
+legend("topright",c("Chemical","Tatil","Visual"),pch=16,col=1:3,bty="n")
+for(i in 1:length(tip)){
+        temp=d[d$tipo==tip[i],]
+        a=aggregate(temp$vp,list(trat=temp$trat),mean)
+        a1=aggregate(a$x,list(trat=a$trat),mean)
+        a1$xx=ifelse(a1$trat=="c",0,1)
+        #a1$xx=a1$xx+ifelse(tip[i]=="quimico",0,ifelse(tip[i]=="tactil",.1,-.1))
+        a1s=aggregate(a$x,list(trat=a$trat),sd)
+        points(a1$xx,a1$x,col=i,pch=16)
+        lines(a1$xx,a1$x,col=i,pch=16)
+        
+        
+       
+}
+
+library(nlme)
+
+mod=lme(vp~trat,random=(~1|tipo),data=adata)
+mod=glmmTMB(vp~trat+(1|tipo),data=adata)
+
+hist(residuals(mod))
+plot(mod)
+summary(mod)
+
+mq=lme(vp~trat,random=(~1|tipo),data=adata[adata$tipo=="quimico",])
+summary(mq)
+
+mt=lme(vp~trat,random=(~1|tipo),data=adata[adata$tipo=="tactil",])
+summary(mt)
+
+mv=lme(vp~trat,random=(~1|tipo),data=adata[adata$tipo=="visual",])
+summary(mv)
+
+
+#### ggplot
+library(ggpubr)
+
+expr <- read.delim("https://raw.githubusercontent.com/kassambara/data/master/expr_tcga.txt",
+                   stringsAsFactors = FALSE)
+str(expr)
+ggline(expr, x = "dataset",
+       y = c("GATA3", "PTEN", "XBP1"),
+       combine = TRUE,
+       ylab = "Expression", 
+       add = "mean_sd")
+
+adata
+
+ggline(adata, x= "trat",
+       y = "vp",
+       combine = TRUE,
+       ylab = "Aggrupation Time (s)", 
+       add = "mean_sd")
+
+
+ggline ( adata, aes(x=trat, y=vp, colour=tipo),
+         combine = TRUE
+)
+
+###
+adata
+
+radata<- data.frame(
+        ms= c(mean(adata[1:6,2]), mean(adata[7:12,2]),
+                mean(adata[13:18,2]), mean(adata[19:24,2]),
+                mean(adata[25:30,2]), mean(adata[31:36,2])),
+        sds= c(sd(adata[1:6,2]), sd(adata[7:12,2]),
+              sd(adata[13:18,2]), sd(adata[19:24,2]),
+              sd(adata[25:30,2]), sd(adata[31:36,2])),
+        tipo=c ("Control","Stimulus","Control","Stimulus","Control","Stimulus"),
+        Experiment=c (rep("Chemical",2),rep("Tactile",2),rep("Visual",2))
+
+                )
+
+radata
+pd <- position_dodge(0.1)
+
+f1<-ggplot(radata, aes(x=tipo, y=ms,colour=Experiment,group=Experiment)) + 
+        geom_errorbar(aes(ymin=ms-sds, ymax=ms+sds), size=1.5, width=0.2, position=pd, size=1) +
+        geom_line(position=pd, size=1.5) +
+        geom_point(position=pd, size=2,shape=21, fill="white")+
+        labs(x = "", y = "Aggrupation Time (s)") +
+        geom_text(x=1.965, y=156, label="***",colour="black")+
+        geom_text(x=2.035, y=122, label="ns",colour="darkgrey")+
+        geom_text(x=2, y=37, label="ns",colour="azure4")
+
+f1 + scale_color_grey(end = 0.7) + theme_classic(base_size = 15, base_line_size =1.2)
+
+## library(adehabitatLT)
+library(adehabitatHR)
+library(lattice)
+library(trajr)
+library (nlme)
+library(glmmTMB)
+library(ggplot2)
+library(dunn.test)
+library(plyr)
+source("Explor_Data_Func.R")
+
+library(easypackages)
+libraries("agricolae", "bestNormalize","CarletonStats", "datasets",
+          "dplyr", "easypackages", "FSA", "funModeling", "ggplot2", 
+          "ggsci","gridExtra", "Hmisc", "lattice", "nortest", 
+          "PerformanceAnalytics","plyr", "outliers", "raster", 
+          "reshape2", "taRifx", "tidyr")
+
+
+
+data<-read.table("datos.txt",header=TRUE)
+head(data)
+str(data)
+
+boxplot(AGR~EXP,data=data)
+boxplot(AES~EXP,data=data)
+boxplot(TOT~EXP,data=data)
+
+
+
+p1<- ggplot(data,aes(x=EXP,y=AGR,fill=EXP,group=))+
+                geom_boxplot(outlier.colour="Black", outlier.shape=16,
+                          outlier.size=2, notch=FALSE)
+
+p1        
+
+p2<- ggplot(data,aes(x=EXP,y=AES,fill=EXP))+
+  geom_boxplot(outlier.colour="Black", outlier.shape=16,
+               outlier.size=2, notch=FALSE)
+
+p2        
+
+p3<- ggplot(data,aes(x=EXP,y=TOT,fill=EXP))+
+  geom_boxplot(outlier.colour="Black", outlier.shape=16,
+               outlier.size=2, notch=FALSE)
+
+p3        
+
+shapiro.test(data[1:5,4])
+kruskal.test(AGR ~ EXP, data = data)
+dunn.test(data$AGR, data$EXP)
+kruskal.test(AES ~ EXP, data = data)
+dunn.test(data$AES,data$EXP)
+kruskal.test(TOT ~ EXP, data = data)
+dunn.test(data$TOT,data$EXP)
+
+
+p11<-ggplot(data,aes(x=EXP,y=AES,fill=EXP))+
+    geom_line() +
+  geom_point(size=3,shape=21, fill="white")
+p11
+
+## tabla 2
+adata<- read.table("datos2.txt",header=TRUE)
+
+
+radata<- data.frame(
+  ms= c(mean(adata[1:5,4]), mean(adata[6:12,4]),
+        mean(adata[13:19,4]), mean(adata[20:25,4]),
+        mean(adata[26:30,4]), mean(adata[31:37,4]),
+        mean(adata[38:44,4]), mean(adata[45:50,4]),
+        mean(adata[51:55,4]), mean(adata[56:62,4]),
+        mean(adata[63:69,4]), mean(adata[70:75,4])),
+  
+  sds= c(sd(adata[1:5,4]), sd(adata[6:12,4]),
+         sd(adata[13:19,4]), sd(adata[20:25,4]),
+         sd(adata[26:30,4]), sd(adata[31:37,4]),
+         sd(adata[38:44,4]), sd(adata[45:50,4]),
+         sd(adata[51:55,4]), sd(adata[56:62,4]),
+         sd(adata[63:69,4]), sd(adata[70:75,4])),
+  max= c(max(adata[1:5,4]), max(adata[6:12,4]),
+         max(adata[13:19,4]), max(adata[20:25,4]),
+         max(adata[26:30,4]), max(adata[31:37,4]),
+         max(adata[38:44,4]), max(adata[45:50,4]),
+         max(adata[51:55,4]), max(adata[56:62,4]),
+         max(adata[63:69,4]), max(adata[70:57,4])),
+  min= c(min(adata[1:5,4]), min(adata[6:12,4]),
+         min(adata[13:19,4]), min(adata[20:25,4]),
+         min(adata[26:30,4]), min(adata[31:37,4]),
+         min(adata[38:44,4]), min(adata[45:50,4]),
+         min(adata[51:55,4]), min(adata[56:62,4]),
+         min(adata[63:69,4]), min(adata[70:75,4])),
+  
+  tipo= c ("naf","mal","Con","atf","naf","mal","Con","atf","naf","mal","Con","atf"),
+  var=c (rep("AGR",4),rep("AES",4),rep("TOT",4))
+  
+)
+
+radata
+pd <- position_dodge(0.1)
+
+f3<-ggplot(radata, aes(x=tipo, y=ms,colour=var,group=var)) + 
+  geom_errorbar(aes(ymin=max, ymax=min), width=0.1, position=pd, linewidth=1) +
+  geom_line(position=pd, size=1) +
+  geom_point(position=pd, size=2,shape=21, fill="white")+
+  labs(x = "", y = "Aggrupation Time (s)")
+  
+f3
+## sin variable agr total
+
+adata
+radata<- data.frame(
+  ms= c(mean(adata[1:5,4]), mean(adata[6:12,4]),
+        mean(adata[13:19,4]), mean(adata[20:25,4]),
+        mean(adata[26:30,4]), mean(adata[31:37,4]),
+        mean(adata[38:44,4]), mean(adata[45:50,4])),
+        
+  
+  sds= c(sd(adata[1:5,4]), sd(adata[6:12,4]),
+         sd(adata[13:19,4]), sd(adata[20:25,4]),
+         sd(adata[26:30,4]), sd(adata[31:37,4]),
+         sd(adata[38:44,4]), sd(adata[45:50,4])),
+    
+  max= c(max(adata[1:5,4]), max(adata[6:12,4]),
+         max(adata[13:19,4]), max(adata[20:25,4]),
+         max(adata[26:30,4]), max(adata[31:37,4]),
+         max(adata[38:44,4]), max(adata[45:50,4])),
+  min= c(min(adata[1:5,4]), min(adata[6:12,4]),
+         min(adata[13:19,4]), min(adata[20:25,4]),
+         min(adata[26:30,4]), min(adata[31:37,4]),
+         min(adata[38:44,4]), min(adata[45:50,4])),
+  
+   var=c (rep("Next to the stimulus",4),rep("Far from the stimulus",4)),
+  tipo= c("Non-Attending Females","Male","Control","Attending Females",
+                     "Non-Attending Females","Male","Control","Attending Females")
+  
+
+  )
+
+radata$tipo <- factor(radata$tipo, levels = c("Control", "Male", "Non-Attending Females","Attending Females"))
+table(radata$tipo)
+
+pd <- position_dodge(0.3)
+
+
+f31<-ggplot(radata, aes(x=tipo, y=ms,colour=var,group=var)) + 
+  geom_errorbar(aes(ymin=max, ymax=min), width=0.2, position=pd, size=1.1) +
+  #geom_line(position=pd, size=1) +
+  geom_point(position=pd, size=2,shape=21, fill="white")+
+  labs(x = "", y = "Aggregation Time (s)")+
+  geom_text(x=3.92, y=370, label="***",colour="black")+
+  geom_text(x=4.07, y=238, label="ns",colour="grey")+
+  geom_text(x=2.93, y=15, label="ns",colour="black")+
+  geom_text(x=3.08, y=37, label="ns",colour="grey")+
+  geom_text(x=1.93, y=9, label="ns",colour="black")+
+  geom_text(x=2.08, y=73, label="ns",colour="grey")
+  #geom_text(x=1.075, y=237, label="ns",colour="dodgerblue1")
+
+f31 + scale_color_grey(end = 0.5) + theme_classic(base_size = 15, base_line_size =1.2)
+
+
+
+library(dunn.test)
+
+kruskal.test(TIM ~ EXP, data = adata[1:25,])
+
+
+###dunn.test(TIM,EXP)
+kruskal.test(TIM ~ EXP, data = adata[26:50,])
+
+dunn.test(adata[26:50,4],adata[26:50,2])
+
+
+
+###### exp 4 chi 
+
+obsfreq <- c(8,4)
+
+nullprobs <- c(.5,.5)
+
+chisq.test(obsfreq,p=nullprobs)
+
+e4<-read.table("exp4.txt", header=T)
+
+e4
+kruskal.test(TIM ~ EXP, data = e4)
+
+##
+
+p4<-ggplot(e4, aes(x=VAR, y=TIM))+
+  #geom_errorbar(aes(ymin=max, ymax=min), width=0.1, position=pd, size=1) +
+  geom_line(position=pd, size=1) +
+  geom_point(position=pd, size=2,shape=21, fill="white")+
+  labs(x = "", y = "Aggrupation Time (s)")
+
+p4
+dp4<- data.frame(
+  var= c("Far from Attending Females","Next to Unrelated Attending Female","Next to Related Attending Female"),
+  ms= c(mean(e4[c(1,4,7,10,13,16),3]), 
+        mean(e4[c(2,5,8,11,14,17),3]),
+        mean(e4[c(3,6,9,12,15,18),3])),
+  sd= c(sd(e4[c(1,4,7,10,13,16),3]), 
+        sd(e4[c(2,5,8,11,14,17),3]),
+        sd(e4[c(3,6,9,12,15,18),3])),
+  max=c(max(e4[c(1,4,7,10,13,16),3]), 
+        max(e4[c(2,5,8,11,14,17),3]),
+        max(e4[c(3,6,9,12,15,18),3])),
+  min=c(min(e4[c(1,4,7,10,13,16),3]), 
+        min(e4[c(2,5,8,11,14,17),3]),
+        min(e4[c(3,6,9,12,15,18),3]))
+        
+  )
+dp4
+dp4$var <- factor(dp4$var, levels = c("Far from Attending Females","Next to Unrelated Attending Female","Next to Related Attending Female"))
+
+
+p42<-ggplot(dp4, aes(x=var, y=ms))+
+  geom_errorbar(aes(ymin=max, ymax=min), width=0.1, position=pd, size=1) +
+  geom_line(position=pd, size=1) +
+  geom_point(position=pd, size=2,shape=21, fill="white")+
+  labs(x = "", y = "Aggregation Time (s)")+
+  geom_text(x=2, y=395, label="ns",colour="black")+
+  geom_text(x=3, y=365, label="ns",colour="black")
+  
+p42 + scale_color_grey() + theme_classic(base_size = 15, base_line_size =1.2)
+
+
